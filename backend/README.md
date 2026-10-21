@@ -71,4 +71,24 @@ go build ./...
 sqlc generate
 ```
 
-生成代码纳入版本管理，不手工编辑；修改 Schema 或 Query 后应重新生成并检查 diff。真实 PostgreSQL 集成测试通过 `TEST_DATABASE_URL` 显式启用，必须指向已具备当前 Schema 的独立测试库；未设置时相关测试跳过。
+生成代码纳入版本管理，不手工编辑；修改 Schema 或 Query 后应重新生成并检查 diff。真实 PostgreSQL 集成测试通过 `TEST_DATABASE_URL` 显式启用；运行前须在独立测试库中初始化当前 Schema。
+
+## PostgreSQL 集成测试
+
+先创建专用的空 PostgreSQL 测试数据库，人工核对其主机、端口和数据库名，确认不是开发或生产数据库。设置 `TEST_DATABASE_URL` 指向该库；如同时设置了 `DATABASE_URL`，测试会拒绝两者解析后的 Host、Port、Database 完全相同的目标。静态比较无法识别 DNS 别名等实际指向同一数据库的情况，环境隔离仍需人工确认。
+
+首次初始化时，必须人工确认目标是专用的全新空测试数据库。从 `backend/` 核对目标；`public_object_count = 0` 只是辅助空库检查，不能单独证明目标安全：
+
+```sh
+psql "${TEST_DATABASE_URL:?请先设置独立测试库连接}" -v ON_ERROR_STOP=1 -c 'SELECT current_database(), current_user, inet_server_addr(), inet_server_port()'
+psql "${TEST_DATABASE_URL:?请先设置独立测试库连接}" -v ON_ERROR_STOP=1 -c "SELECT (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public') + (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') AS public_object_count"
+```
+
+确认这是独立空测试库后执行：
+
+```sh
+psql "${TEST_DATABASE_URL:?请先设置独立测试库连接}" -v ON_ERROR_STOP=1 -f migration/postgres/ddl_1.0.sql
+go test -tags=integration ./... -count=1 -v
+```
+
+DDL 只用于首次初始化空库；日常重复测试只运行第二条命令。测试不会自动执行 DDL、清库或重建 Schema；缺少 Schema 时会报错并给出初始化提示。测试数据由各测试创建，优先回滚，已提交的验证数据按随机主键精确清理。未设置 `TEST_DATABASE_URL` 时，集成测试明确跳过；普通 `go test ./...` 不连接 PostgreSQL。

@@ -1,14 +1,16 @@
-package database
+package tests
 
 import (
 	"context"
 	"strings"
 	"testing"
 	"time"
+
+	"mediaflow/backend/internal/platform/database"
 )
 
 func TestNewPoolConfigAndClose(t *testing.T) {
-	pool, err := NewPool(context.Background(), Options{
+	pool, err := database.NewPool(context.Background(), database.Options{
 		URL:               "postgres://user:secret@127.0.0.1:1/mediaflow?sslmode=disable",
 		ConnectTimeout:    3 * time.Second,
 		MaxConns:          4,
@@ -31,7 +33,7 @@ func TestNewPoolConfigAndClose(t *testing.T) {
 }
 
 func TestNewPoolRejectsMalformedDSNWithoutLeakingPassword(t *testing.T) {
-	_, err := NewPool(context.Background(), Options{URL: "postgres://user:secret@%invalid/mediaflow"})
+	_, err := database.NewPool(context.Background(), database.Options{URL: "postgres://user:secret@%invalid/mediaflow"})
 	if err == nil {
 		t.Fatal("无效 PostgreSQL DSN 应被拒绝")
 	}
