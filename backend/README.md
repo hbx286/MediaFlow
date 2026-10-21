@@ -6,7 +6,7 @@ MediaFlow 后端采用 Go 模块化单体结构。HTTP API 提供服务健康检
 
 - Go 1.24+
 - Gin、标准库 `http.Server`
-- PostgreSQL 16+、pgx/v5（`pgxpool`）
+- PostgreSQL 16+、pgx/v5（`pgxpool`）、sqlc v1.30.0
 
 ## 目录结构
 
@@ -16,8 +16,10 @@ backend/
 ├── internal/health/             HTTP 健康检查
 ├── internal/platform/config/   环境配置
 ├── internal/platform/database/ PostgreSQL 连接池
+├── internal/infrastructure/postgres/ SQL 查询与 sqlc 生成代码
 ├── internal/platform/lifecycle/ HTTP 服务生命周期
 ├── migration/postgres/          数据库 Schema
+├── sqlc.yaml                    sqlc 生成配置
 └── tests/                       Go 测试
 ```
 
@@ -59,4 +61,14 @@ go vet ./...
 go build ./...
 ```
 
-数据库 Schema 文件位于 [`migration/postgres/ddl_1.0.sql`](migration/postgres/ddl_1.0.sql)，仅适用于全新空库，不应在已初始化的数据库中重复执行。
+## 数据库契约与代码生成
+
+数据库 Schema 以 [`migration/postgres/ddl_1.0.sql`](migration/postgres/ddl_1.0.sql) 为准；该文件只适用于全新空库。仓库目前没有 Seed SQL。查询源文件位于 `internal/infrastructure/postgres/queries/`，生成代码位于 `internal/infrastructure/postgres/sqlcgen/`。
+
+从 [sqlc v1.30.0 发布页](https://github.com/sqlc-dev/sqlc/releases/tag/v1.30.0)下载对应平台的程序并加入 `PATH`，然后在 `backend/` 目录运行：
+
+```sh
+sqlc generate
+```
+
+生成代码纳入版本管理，不手工编辑；修改 Schema 或 Query 后应重新生成并检查 diff。真实 PostgreSQL 集成测试通过 `TEST_DATABASE_URL` 显式启用，必须指向已具备当前 Schema 的独立测试库；未设置时相关测试跳过。

@@ -42,6 +42,13 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	pingCtx, cancelPing := context.WithTimeout(ctx, cfg.DBPingTimeout)
+	err = pool.Ping(pingCtx)
+	cancelPing()
+	if err != nil {
+		pool.Close()
+		return fmt.Errorf("PostgreSQL 启动连接检查失败: %w", err)
+	}
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           health.NewRouter(pool, cfg.DBPingTimeout, logger),

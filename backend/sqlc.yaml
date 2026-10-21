@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migration/postgres/ddl_1.0.sql"
+    queries: "internal/infrastructure/postgres/queries"
+    gen:
+      go:
+        package: "sqlcgen"
+        out: "internal/infrastructure/postgres/sqlcgen"
+        sql_package: "pgx/v5"
+        omit_unused_structs: true
